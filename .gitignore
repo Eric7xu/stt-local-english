@@ -1,0 +1,21 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# 转写产物/缓存
+*.srt
+*.vtt
+*.md.tmp
+!README.md
+transcripts/
+
+# 模型缓存与本地数据
+.mlx-whisper/
+*.log
+
+# macOS
+.DS_Store
