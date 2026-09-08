@@ -1,0 +1,22 @@
+[project]
+name = "stt-local-english"
+version = "0.1.0"
+description = "Local English speech-to-text CLI: accurate SRT/MD/JSON transcripts from video/audio files using mlx-whisper on Apple Silicon."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mlx-whisper>=0.4",
+]
+
+[project.scripts]
+stt-local = "stt_local_english.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stt_local_english"]
+
+[tool.uv]
+package = true
