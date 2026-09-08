@@ -32,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
                    default=None, help="output format; repeatable (default: srt md)")
     p.add_argument("-l", "--language", default="en", help="language hint, 'auto' to detect (default: en)")
     p.add_argument("--word-timestamps", action="store_true", help="include per-word timestamps (in JSON/SRT)")
+    p.add_argument("--no-condition-previous", action="store_true",
+                  help="disable conditioning on previous text (less repetition-hallucination on non-speech/music; may break sentence consistency)")
     p.add_argument("--no-md", action="store_true", help="shortcut: only write SRT")
     p.add_argument("--force", action="store_true", help="re-transcribe even if outputs exist")
     p.add_argument("--no-recursive", action="store_true", help="do not descend into subdirectories")
@@ -63,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
         word_timestamps=args.word_timestamps,
         force=args.force,
         recursive=not args.no_recursive,
+        condition_on_previous_text=not args.no_condition_previous,
     )
 
     media = discover_media(cfg)

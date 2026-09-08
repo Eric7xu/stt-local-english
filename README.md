@@ -134,6 +134,7 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 | `-f, --format` | `srt md` | 输出格式，可重复传（如 `-f srt -f json`） |
 | `-l, --language` | `en` | 语言提示；`auto` 自动检测 |
 | `--word-timestamps` | 关 | 逐词时间戳：SRT 词级切轴、JSON 含 `words` |
+| `--no-condition-previous` | 开 | 关闭“以上文为条件”解码；片尾音乐/静音段触发循环重复幻觉（`A-A-A-...`）时用它能根治 |
 | `--no-md` | 关 | 快捷方式：只输出 SRT |
 | `--force` | 关 | 已有结果也重新转写 |
 | `--no-recursive` | 关 | 不递归子目录 |
