@@ -208,6 +208,23 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 
 ---
 
+## 开发 / CI
+
+仓库自带 GitHub Actions 冒烟测试（`.github/workflows/smoke.yml`）：在 macOS arm64
+runner 上 `uv sync` → 用 whisper-tiny 转写 `tests/sample.mp3` → 校验 srt/md/json 输出。
+
+- 任何 push 到 `main` 或新 PR 都会自动跑
+- **`main` 分支受保护：`transcribe-smoke` 必须通过才能合并 PR**
+- 本地快速预演 CI：
+  ```bash
+  uv sync --frozen
+  uv run stt-local tests/sample.mp3 -o tests/out -m mlx-community/whisper-tiny \
+    -f srt -f md -f json --word-timestamps
+  uv run python tests/smoke_check.py tests/out
+  ```
+
+---
+
 ## 常见问题（FAQ）
 
 **Q：报 `mlx-whisper is not available`？**
