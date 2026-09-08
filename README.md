@@ -23,27 +23,75 @@
 
 ## 安装
 
-要求：macOS（Apple Silicon M1/M2/M3/M4/M5）、系统装有 `ffmpeg`、已安装 [uv](https://docs.astral.sh/uv/)。
+### ⚠️ 平台要求（先读）
+
+| 项 | 要求 | 说明 |
+|---|---|---|
+| 操作系统 | **仅 macOS** | 引擎依赖 Apple MLX，仅 Apple Silicon（M1/M2/M3/M4/M5） |
+| 芯片 | Apple Silicon | Intel Mac / Windows / Linux 无法运行；跨平台替代品见 FAQ |
+| ffmpeg | 需系统安装 | `brew install ffmpeg` |
+| 包管理 | uv | `brew install uv` 或见 [uv 文档](https://docs.astral.sh/uv/) |
+| 网络 | 首次需联网 | 下载依赖 + 模型权重（后续离线可用） |
+
+### 5 步从零开始（全新机器）
 
 ```bash
-git clone <你的仓库地址>  # 或直接使用已有目录
+# 1. 装前置（已装可跳过）
+brew install uv ffmpeg
+
+# 2. 克隆（私有仓库需先被授予访问权限）
+git clone git@github.com:Eric7xu/stt-local-english.git
 cd stt-local-english
-uv sync                    # 创建 .venv 并安装依赖
-uv run stt-local --help    # 验证可用
+
+# 3. 创建环境并安装依赖（uv 会自动装 Python 3.12）
+uv sync
+
+# 4. 验证
+uv run stt-local --help
+
+# 5. 转第一个文件（首次会自动下载模型，见下节）
+uv run stt-local your_video.mp4 -o ./out -f srt -f md
 ```
 
-**全局安装**（任意目录直接用 `stt-local` 命令）：
+**全局安装**（任意目录直接用 `stt-local`）：
+
 ```bash
 uv tool install .
-# 升级：
+# 升级 / 卸载
 uv tool upgrade stt-local-english
-# 卸载：
 uv tool uninstall stt-local-english
 ```
 
-> 首次转写会自动从 HuggingFace 下载模型权重到本地缓存
-> （`~/.cache/huggingface/`，large-v3-turbo 约 1.6 GB；int4 量化版约 500 MB），
-> 之后离线可用。
+---
+
+## 模型怎么来？（不入库，按需下载）
+
+模型权重**不放进 git 仓库**（默认版约 1.5 GB，避免仓库臃肿），改为：
+
+1. 首次执行转写时，`mlx-whisper` 自动从 HuggingFace 拉取 `mlx-community/whisper-large-v3-turbo`
+2. 存入本机缓存 `~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/`
+3. **只下载一次**，之后完全离线可用
+4. 删除缓存即重新下载；换机器 = 各自下载一次
+
+```bash
+# 想看缓存大小 / 手动清理
+ls ~/.cache/huggingface/hub/ | grep whisper
+rm -rf ~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo
+```
+
+**嫌大 / 网慢？** 换 int4 量化版（约 500 MB，效果略降）：
+
+```bash
+stt-local clip.mp4 -m mlx-community/whisper-large-v3-turbo-int4
+```
+
+**中国大陆网络下不去 HuggingFace？** 用镜像（一行环境变量，无需代理）：
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+export HF_HUB_ENABLE_HF_TRANSFER=1   # 可选：加速下载
+stt-local clip.mp4
+```
 
 ---
 
@@ -164,6 +212,9 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 
 **Q：报 `mlx-whisper is not available`？**
 不是 Apple Silicon 或依赖没装好。确认芯片 `sysctl -n machdep.cpu.brand_string` 含 Apple，并 `uv sync` 重装。
+
+**Q：我是 Windows / Linux / Intel Mac，能用吗？**
+本工具基于 Apple MLX，**仅限 Apple Silicon macOS**。跨平台（CPU 通用）可换 `faster-whisper`/`whisper.cpp`（同为 Whisper 系，本工具的 `srt/md/json` 输出格式思路可直接迁移），或直接用 OpenAI 官方 `whisper`（慢）。
 
 **Q：报 ffmpeg 相关错误？**
 mlx-whisper 内部调用系统 ffmpeg 解码。macOS 装：`brew install ffmpeg`。
