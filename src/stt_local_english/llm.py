@@ -1,9 +1,16 @@
 """Minimal OpenAI-compatible chat client (stdlib only, no extra deps).
 
 Configuration (first non-empty wins):
-    api_key : --api-key flag > STT_LLM_API_KEY > OPENAI_API_KEY
-    base_url: --api-base flag > STT_LLM_BASE_URL > https://api.openai.com/v1
-    model   : --llm-model flag > STT_LLM_MODEL
+    api_key : --api-key flag > STT_LLM_API_KEY > OPENAI_API_KEY > ~/.config/stt-local/keys.env
+    base_url: --api-base flag > STT_LLM_BASE_URL > keys.env > https://api.openai.com/v1
+    model   : --llm-model flag > STT_LLM_MODEL > keys.env
+
+keys.env (recommended): a dedicated 600-perm dotenv file, NOT in any repo,
+    NOT sourced by the shell — stt-local reads it directly:
+        ~/.config/stt-local/keys.env
+        STT_LLM_API_KEY=sk-...
+        STT_LLM_BASE_URL=https://api.deepseek.com/v1
+        STT_LLM_MODEL=deepseek-chat
 """
 
 from __future__ import annotations
@@ -13,10 +20,33 @@ import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 
 class LLMError(RuntimeError):
     pass
+
+
+def keys_env_path() -> Path:
+    return Path.home() / ".config" / "stt-local" / "keys.env"
+
+
+def _load_keys_file() -> dict:
+    """Parse a tiny dotenv (KEY=VALUE, # comments). Real env vars win over it."""
+    out: dict = {}
+    p = keys_env_path()
+    if not p.is_file():
+        return out
+    try:
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            out[k.strip()] = v.strip().strip('"').strip("'")
+    except Exception:  # noqa: BLE001 - config file is optional, never fatal
+        return {}
+    return out
 
 
 class ChatClient:
@@ -29,9 +59,10 @@ class ChatClient:
         timeout: int = 180,
         max_retries: int = 3,
     ) -> None:
-        self.api_key = api_key or os.environ.get("STT_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
-        self.base_url = (base_url or os.environ.get("STT_LLM_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
-        self.model = model or os.environ.get("STT_LLM_MODEL") or ""
+        f = _load_keys_file()
+        self.api_key = api_key or os.environ.get("STT_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY") or f.get("STT_LLM_API_KEY") or ""
+        self.base_url = (base_url or os.environ.get("STT_LLM_BASE_URL") or f.get("STT_LLM_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+        self.model = model or os.environ.get("STT_LLM_MODEL") or f.get("STT_LLM_MODEL") or ""
         self.temperature = temperature
         self.timeout = timeout
         self.max_retries = max_retries

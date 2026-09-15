@@ -209,16 +209,37 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 
 ---
 
+## LLM key 放哪（不用 zshrc、不用钥匙串）
+
+存在**专用轻量配置文件**（类似一个只干一件事的迷你 zshrc，但只被 stt-local 读取，
+不进任何 shell、不进任何仓库）：
+
+```
+~/.config/stt-local/keys.env        # 权限 600，仅本人可读
+```
+
+```bash
+# 填写（去掉行首 # 即生效）
+# STT_LLM_API_KEY=sk-xxx
+# STT_LLM_BASE_URL=https://api.deepseek.com/v1
+# STT_LLM_MODEL=deepseek-chat
+
+chmod 600 ~/.config/stt-local/keys.env   # 确认权限
+```
+
+- 读取优先级：CLI 参数 > 环境变量 > keys.env
+- 修改即生效，无需 source / 重启
+- 想临时在 shell 里用同一套变量：`set -a; source ~/.config/stt-local/keys.env; set +a`
+- **迁移到新机器**：随项目拷走这一个文件即可（同 gh 的 ~/.config/gh 模式）
+
 ## LLM 精修（stt-local polish）
 
 对已转写的 `.json` 做**对齐安全**的错字修复：LLM 只返回逐句修正文本（id 一一对应），
 时间轴永远由本工具保管，字幕不会因精修而错位。支持任意 OpenAI 兼容端点。
 
 ```bash
-# 配置（任意 OpenAI 兼容服务商，如 DeepSeek / Gemini 兼容层 / OpenRouter / 本地 Ollama）
-export STT_LLM_API_KEY=sk-xxx
-export STT_LLM_BASE_URL=https://api.deepseek.com/v1   # OpenAI 官方可省略
-export STT_LLM_MODEL=deepseek-chat
+# 配置（写一次 ~/.config/stt-local/keys.env，见上一节；也可用环境变量临时覆盖）
+# STT_LLM_API_KEY / STT_LLM_BASE_URL / STT_LLM_MODEL
 
 # 先 mock 自测管线（不联网、不花钱）
 stt-local polish transcripts/videos/ --mock -o /tmp/pol-test
