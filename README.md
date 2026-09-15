@@ -209,6 +209,34 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 
 ---
 
+## LLM 精修（stt-local polish）
+
+对已转写的 `.json` 做**对齐安全**的错字修复：LLM 只返回逐句修正文本（id 一一对应），
+时间轴永远由本工具保管，字幕不会因精修而错位。支持任意 OpenAI 兼容端点。
+
+```bash
+# 配置（任意 OpenAI 兼容服务商，如 DeepSeek / Gemini 兼容层 / OpenRouter / 本地 Ollama）
+export STT_LLM_API_KEY=sk-xxx
+export STT_LLM_BASE_URL=https://api.deepseek.com/v1   # OpenAI 官方可省略
+export STT_LLM_MODEL=deepseek-chat
+
+# 先 mock 自测管线（不联网、不花钱）
+stt-local polish transcripts/videos/ --mock -o /tmp/pol-test
+
+# 正式精修（推荐配词表，保护专有名词不被“改错”）
+stt-local polish transcripts/videos/ -o transcripts/videos-polished \
+    --glossary terms.txt --jobs 4
+```
+
+要点：
+- 输出三件套到 `-o` 目录：`.json`（含 `polished: true` 与用量统计）、`.srt`、`.md`
+- 断点续转：每批完成即写 checkpoint，中断重跑不重复计费
+- 约束校验：句数/顺序/长度比例不合格的批次自动重试，最终回退原文（日志可见 fallback）
+- 幻觉治理：LLM 判定为非语音垃圾的片段输出空串，srt/md 中跳过
+- 术语词表 `terms.txt` 每行一个词（如 `CLAUDE.md`、`agent skills`、``）
+
+---
+
 ## 开发 / CI
 
 仓库自带 GitHub Actions 冒烟测试（`.github/workflows/smoke.yml`）：在 macOS arm64

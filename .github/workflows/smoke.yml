@@ -37,6 +37,19 @@ jobs:
       - name: Validate outputs
         run: uv run python tests/smoke_check.py tests/out
 
+      - name: Polish smoke (mock, no network)
+        run: |
+          uv run stt-local polish tests/out --mock -o tests/out/polished
+          test -f "tests/out/polished/$(ls tests/out | grep '\.json$' | head -1 | xargs basename)"
+          python3 -c "
+            import json, glob
+            f = glob.glob('tests/out/polished/*.json')[0]
+            d = json.load(open(f))
+            assert d.get('polished') is True, 'polished flag missing'
+            assert d['segments'], 'no segments'
+            print('POLISH MOCK OK:', len(d['segments']), 'segments')
+          "
+
       - name: Upload transcript artifacts
         if: always()
         uses: actions/upload-artifact@v4

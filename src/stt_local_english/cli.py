@@ -11,8 +11,66 @@ from . import DEFAULT_MODEL, __version__
 from .batch import BatchConfig, discover_media, run_batch
 from .engine import check_mlx
 from .output import RENDERERS
+from .polish import PolishConfig, run_polish
 
 log = logging.getLogger("stt-local")
+
+
+def build_polish_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="stt-local polish",
+        description=(
+            "Alignment-safe LLM polishing of stt-local transcripts: fixes ASR errors "
+            "while keeping every timestamp. The LLM only returns corrected text per "
+            "segment id; timing data never leaves this tool."
+        ),
+    )
+    p.add_argument("inputs", nargs="+", type=Path, help="transcript .json files or directories")
+    p.add_argument("-o", "--output-dir", type=Path, default=None,
+                   help="output root (default: <sibling> -polished/ next to each input folder)")
+    p.add_argument("--glossary", type=Path, default=None,
+                   help="text file of domain terms (one per line) to protect from mis-correction")
+    p.add_argument("--api-base", default=None, help="OpenAI-compatible base URL (env STT_LLM_BASE_URL)")
+    p.add_argument("--api-key", default=None, help="API key (env STT_LLM_API_KEY or OPENAI_API_KEY)")
+    p.add_argument("--llm-model", default=None, help="model name (env STT_LLM_MODEL)")
+    p.add_argument("--temperature", type=float, default=0.0)
+    p.add_argument("--batch-segments", type=int, default=40, help="max segments per LLM request (default 40)")
+    p.add_argument("--batch-chars", type=int, default=6000, help="max chars per LLM request (default 6000)")
+    p.add_argument("--max-retries", type=int, default=2, help="retries per failed batch (default 2)")
+    p.add_argument("--jobs", type=int, default=1, help="parallel files (default 1)")
+    p.add_argument("--force", action="store_true", help="re-polish even if outputs exist")
+    p.add_argument("--dry-run", action="store_true", help="list transcript files and exit")
+    p.add_argument("--mock", action="store_true", help="no network: pass-through text, exercise the full pipeline")
+    return p
+
+
+def polish_main(argv: list[str]) -> int:
+    args = build_polish_parser().parse_args(argv)
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+
+    cfg = PolishConfig(
+        inputs=args.inputs,
+        output_root=args.output_dir,
+        glossary_path=args.glossary,
+        batch_segments=args.batch_segments,
+        batch_chars=args.batch_chars,
+        max_retries=args.max_retries,
+        jobs=args.jobs,
+        force=args.force,
+        dry_run=args.dry_run,
+        mock=args.mock,
+        api_key=args.api_key,
+        base_url=args.api_base,
+        llm_model=args.llm_model,
+        temperature=args.temperature,
+    )
+    if args.dry_run:
+        files = __import__("stt_local_english.polish", fromlist=["discover_json"]).discover_json(cfg)
+        for f in files:
+            print(f)
+        print(f"\n{len(files)} transcript file(s).")
+        return 0
+    return run_polish(cfg)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "polish":
+        return polish_main(argv[1:])
     args = build_parser().parse_args(argv)
 
     if args.no_md:
