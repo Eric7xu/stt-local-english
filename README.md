@@ -40,8 +40,8 @@
 # 1. 装前置（已装可跳过）
 brew install uv ffmpeg
 
-# 2. 克隆（私有仓库需先被授予访问权限）
-git clone git@github.com:Eric7xu/stt-local-english.git
+# 2. 克隆（换成你自己的仓库地址）
+git clone https://github.com/<you>/stt-local-english.git
 cd stt-local-english
 
 # 3. 创建环境并安装依赖（uv 会自动装 Python 3.12）
