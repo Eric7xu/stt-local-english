@@ -63,3 +63,37 @@ jobs:
           name: smoke-transcripts
           path: tests/out/
           if-no-files-found: warn
+
+  linux-polish-judge:
+    # Linux 证明：polish / judge（纯 Python）跨平台可用，仅 transcribe 限 macOS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Sync (mlx-whisper skipped via platform marker)
+        run: uv sync --frozen
+      - name: Build minimal fixture
+        run: |
+          mkdir -p fixture/orig fixture/polished
+          python3 - <<'PY'
+          import json
+          segs = [{"start": 0.0, "end": 2.0, "text": "Hello clawed code world."},
+                  {"start": 2.0, "end": 4.0, "text": "This is a test line."}]
+          for d, flag in (("fixture/orig", False), ("fixture/polished", True)):
+              doc = {"segments": [dict(s) for s in segs], "language": "en", "duration": 4.0}
+              if flag:
+                  doc["segments"][0]["text"] = "Hello Claude Code world."
+                  doc["polished"] = True
+              json.dump(doc, open(f"{d}/sample.json", "w"))
+          PY
+      - name: Polish smoke on Linux (mock)
+        run: |
+          uv run stt-local polish fixture/orig --mock -o fixture/polished-mock
+          test -f fixture/polished-mock/sample.json && echo "LINUX POLISH MOCK OK"
+      - name: Judge smoke on Linux (mock)
+        run: |
+          uv run stt-local judge fixture/polished --orig-root fixture/orig --mock -o fixture/judge-report.md
+          grep -q "diff 总数: 1" fixture/judge-report.md && echo "LINUX JUDGE MOCK OK"

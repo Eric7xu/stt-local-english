@@ -27,9 +27,9 @@
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| 操作系统 | **仅 macOS** | 引擎依赖 Apple MLX，仅 Apple Silicon（M1/M2/M3/M4/M5） |
-| 芯片 | Apple Silicon | Intel Mac / Windows / Linux 无法运行；跨平台替代品见 FAQ |
-| ffmpeg | 需系统安装 | `brew install ffmpeg` |
+| 操作系统 | **transcribe 仅 macOS（Apple Silicon）** | 引擎依赖 Apple MLX；Windows/Linux 无法转写 |
+| `polish` / `judge` | ✅ **跨平台**（Linux/Win 可用） | 纯 Python 标准库，无需 MLX；Linux/Win 上 `uv sync` 自动跳过 mlx 依赖 |
+| ffmpeg | 仅 transcribe 需要 | `brew install ffmpeg` |
 | 包管理 | uv | `brew install uv` 或见 [uv 文档](https://docs.astral.sh/uv/) |
 | 网络 | 首次需联网 | 下载依赖 + 模型权重（后续离线可用） |
 
@@ -301,7 +301,7 @@ runner 上 `uv sync` → 用 whisper-tiny 转写 `tests/sample.mp3` → 校验 s
 不是 Apple Silicon 或依赖没装好。确认芯片 `sysctl -n machdep.cpu.brand_string` 含 Apple，并 `uv sync` 重装。
 
 **Q：我是 Windows / Linux / Intel Mac，能用吗？**
-本工具基于 Apple MLX，**仅限 Apple Silicon macOS**。跨平台（CPU 通用）可换 `faster-whisper`/`whisper.cpp`（同为 Whisper 系，本工具的 `srt/md/json` 输出格式思路可直接迁移），或直接用 OpenAI 官方 `whisper`（慢）。
+分半说：`polish` / `judge`（LLM 精修与裁判）**全平台可用**——纯 Python 标准库，`uv sync` 会自动跳过 mlx 依赖（CI 里有 Linux 冒烟作业持续验证）；`transcribe`（语音转文字）仅限 Apple Silicon macOS，跨平台替代 `faster-whisper`/`whisper.cpp` 转写后，polish/judge 照样接上。
 
 **Q：报 ffmpeg 相关错误？**
 mlx-whisper 内部调用系统 ffmpeg 解码。macOS 装：`brew install ffmpeg`。
