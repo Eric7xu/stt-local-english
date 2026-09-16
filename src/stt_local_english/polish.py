@@ -51,6 +51,13 @@ Rules:
 6. Output STRICT JSON only: a single array of objects
    [{{"id": <same id>, "text": "<corrected text>"}}, ...] — no markdown, no
    commentary.
+7. The "id" values in your output MUST be exactly the input ids — same values,
+   same order. Never renumber, skip, add or invent ids.
+8. EVERY input id must appear exactly once in your output. If a segment needs
+   no correction, return it with the original text unchanged.
+
+Example of the required output shape (for input ids 3 and 7):
+[{{"id": 3, "text": "corrected text for id 3"}}, {{"id": 7, "text": "original text for id 7"}}]
 
 Segments:
 {segments}
@@ -122,21 +129,27 @@ def output_dir_for(json_path: Path, cfg: PolishConfig) -> Path:
 # ---------------------------------------------------------------- batching
 
 
-def plan_batches(segments: list[dict], cfg: PolishConfig) -> list[list[int]]:
-    """Group segment indices into LLM-sized batches."""
+def batch_indices(texts: list[str], max_segments: int, max_chars: int) -> list[list[int]]:
+    """Group indices into LLM-sized batches by count and character budget."""
     batches: list[list[int]] = []
     cur: list[int] = []
     cur_chars = 0
-    for i, seg in enumerate(segments):
-        text = seg.get("text") or ""
-        if cur and (len(cur) >= cfg.batch_segments or cur_chars + len(text) > cfg.batch_chars):
+    for i, t in enumerate(texts):
+        if cur and (len(cur) >= max_segments or cur_chars + len(t) > max_chars):
             batches.append(cur)
             cur, cur_chars = [], 0
         cur.append(i)
-        cur_chars += len(text) + 1
+        cur_chars += len(t) + 1
     if cur:
         batches.append(cur)
     return batches
+
+
+def plan_batches(segments: list[dict], cfg: PolishConfig) -> list[list[int]]:
+    """Group segment indices into LLM-sized batches."""
+    return batch_indices(
+        [s.get("text") or "" for s in segments], cfg.batch_segments, cfg.batch_chars
+    )
 
 
 # ---------------------------------------------------------------- state

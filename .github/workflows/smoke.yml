@@ -50,6 +50,12 @@ jobs:
             print('POLISH MOCK OK:', len(d['segments']), 'segments')
           "
 
+      - name: Judge smoke (mock, no network)
+        run: |
+          uv run python tests/make_judge_fixture.py
+          uv run stt-local judge tests/judge-fixture --orig-root tests/out --mock -o tests/out/judge-report.md
+          grep -q "diff 总数" tests/out/judge-report.md && echo "JUDGE MOCK OK"
+
       - name: Upload transcript artifacts
         if: always()
         uses: actions/upload-artifact@v4

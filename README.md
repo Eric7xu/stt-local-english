@@ -255,6 +255,26 @@ stt-local polish transcripts/videos/ -o transcripts/videos-polished \
 - 约束校验：句数/顺序/长度比例不合格的批次自动重试，最终回退原文（日志可见 fallback）
 - 幻觉治理：LLM 判定为非语音垃圾的片段输出空串，srt/md 中跳过
 - 术语词表 `terms.txt` 每行一个词（如 `CLAUDE.md`、`agent skills`、``）
+- 返回格式已用 few-shot 示例 + 显式 id 规则约束（不得重新编号/遗漏 id），减少无效载荷重试
+
+## 二遍裁判（stt-local judge）
+
+用**另一个模型家族**对精修结果逐条独立评审（避免自评偏见），产出 OK/SUSPECT 报告：
+
+```bash
+stt-local judge transcripts/polished/ \
+    --orig-root transcripts/ \
+    --glossary terms.txt \
+    --llm-model openai/gpt-4o-mini \
+    -o judge-report.md
+```
+
+要点：
+- 原始转录目录默认自动探测（精修路径中名为 `polished` 的祖先目录被剥离）；也可用 `--orig-root` 显式指定
+- 裁判 prompt 注入同一份 glossary —— **不带词表的裁判会把正确的产品名修复误报成 SUSPECT**（实测教训）
+- 严格校验：返回 id 集合必须与输入完全相等（防重新编号），int 键全链路归一化
+- 断点续转 + `--mock` 无网络自测
+- 实测校准：术语修复/垃圾删除 → OK；真语音被替换/破坏 → SUSPECT（fixture 三方向验证通过）
 
 ---
 

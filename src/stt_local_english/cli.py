@@ -10,6 +10,7 @@ from pathlib import Path
 from . import DEFAULT_MODEL, __version__
 from .batch import BatchConfig, discover_media, run_batch
 from .engine import check_mlx
+from .judge import JudgeConfig, run_judge
 from .output import RENDERERS
 from .polish import PolishConfig, run_polish
 
@@ -42,6 +43,60 @@ def build_polish_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true", help="list transcript files and exit")
     p.add_argument("--mock", action="store_true", help="no network: pass-through text, exercise the full pipeline")
     return p
+
+
+def build_judge_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="stt-local judge",
+        description=(
+            "Second-pass QA judge: an independent model reviews every polish diff "
+            "(original vs polished) and verdicts OK / SUSPECT with reasons. "
+            "Use a DIFFERENT model family from the polisher to avoid self-review bias."
+        ),
+    )
+    p.add_argument("inputs", nargs="+", type=Path,
+                   help="polished .json files or directories (default orig-root auto-detects the sibling 'polished' component)")
+    p.add_argument("--orig-root", type=Path, default=None,
+                   help="root of the ORIGINAL transcripts (default: auto: replace the 'polished' path component)")
+    p.add_argument("-o", "--report", type=Path, default=None,
+                   help="report markdown path (default: judge-report.md next to the input folder)")
+    p.add_argument("--glossary", type=Path, default=None,
+                   help="same glossary file used for polishing — injects domain terms to avoid false positives")
+    p.add_argument("--api-base", default=None, help="OpenAI-compatible base URL (env STT_LLM_BASE_URL)")
+    p.add_argument("--api-key", default=None, help="API key (env STT_LLM_API_KEY or OPENAI_API_KEY)")
+    p.add_argument("--llm-model", default=None, help="judge model (env STT_LLM_MODEL; pick a DIFFERENT family from the polisher)")
+    p.add_argument("--temperature", type=float, default=0.0)
+    p.add_argument("--batch-segments", type=int, default=30)
+    p.add_argument("--batch-chars", type=int, default=6000)
+    p.add_argument("--max-retries", type=int, default=2)
+    p.add_argument("--jobs", type=int, default=1)
+    p.add_argument("--force", action="store_true", help="re-judge even if checkpoints exist")
+    p.add_argument("--dry-run", action="store_true", help="list diffs that would be judged, then exit")
+    p.add_argument("--mock", action="store_true", help="no network: all-OK verdicts, exercise the pipeline")
+    return p
+
+
+def judge_main(argv: list[str]) -> int:
+    args = build_judge_parser().parse_args(argv)
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    cfg = JudgeConfig(
+        inputs=args.inputs,
+        orig_root=args.orig_root,
+        report_path=args.report,
+        glossary_path=args.glossary,
+        batch_segments=args.batch_segments,
+        batch_chars=args.batch_chars,
+        max_retries=args.max_retries,
+        jobs=args.jobs,
+        force=args.force,
+        dry_run=args.dry_run,
+        mock=args.mock,
+        api_key=args.api_key,
+        base_url=args.api_base,
+        llm_model=args.llm_model,
+        temperature=args.temperature,
+    )
+    return run_judge(cfg)
 
 
 def polish_main(argv: list[str]) -> int:
@@ -105,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "polish":
         return polish_main(argv[1:])
+    if argv and argv[0] == "judge":
+        return judge_main(argv[1:])
     args = build_parser().parse_args(argv)
 
     if args.no_md:
