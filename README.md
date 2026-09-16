@@ -1,124 +1,144 @@
 # stt-local-english
 
-本地英文语音转文本 CLI（macOS Apple Silicon，基于 `mlx-whisper` + Whisper `large-v3-turbo`）。
+<div align="center">
 
-把任意视频/音频文件转成带时间戳的 **SRT / VTT / Markdown / JSON / TXT**。
-专为「批量转字幕 → LLM 精修」的流程设计：词级时间轴、断点续转、JSON 结构化输出。
+## stt-local-english
+
+**Local English speech-to-text CLI: word-level timestamped SRT/MD/JSON from any video/audio,
+with alignment-safe LLM post-editing built in.**
+
+[![CI](https://github.com/Eric7xu/stt-local-english/actions/workflows/smoke.yml/badge.svg)](https://github.com/Eric7xu/stt-local-english/actions/workflows/smoke.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)]()
+[![Platform](https://img.shields.io/badge/transcribe-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+English | [中文](README_ZH.md)
+
+</div>
 
 ---
 
-## 特性一览
+Local English speech-to-text CLI built on `mlx-whisper` + Whisper `large-v3-turbo`
+(macOS Apple Silicon) and `faster-whisper` (Linux/Windows).
 
-| 特性 | 说明 |
+Turns any video/audio file into timestamped **SRT / VTT / Markdown / JSON / TXT**.
+Designed for the "batch subtitle → LLM refinement" workflow: word-level timestamps,
+checkpoint/resume, structured JSON output.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
 |---|---|
-| 🍎 GPU 原生 | 跑满 M 系列芯片统一内存（MLX），实测 M5 约 **11–13× 实时** |
-| 📄 5 种输出 | `srt` / `vtt` / `md` / `txt` / `json`，可同时多选 |
-| ⏱ 词级时间轴 | 字幕条起止 = 第一个词开口 → 末词收尾（`--word-timestamps`） |
-| 🛡 去伪影回退 | 词对齐不可靠的片段自动回退为句级等比切分，杜绝字幕词重复 |
-| ♻️ 断点续转 | 已生成全部目标格式的文件自动跳过，中断重跑即可续转 |
-| 📦 模型缓存 | 权重磁盘级缓存 + 进程内只加载一次 |
-| 🌲 目录批量 | 支持递归扫描子目录，输出镜像目录结构 |
+| 🍎 GPU-native | Fully utilizes Apple Silicon unified memory (MLX) — measured **11–13× real-time** on an M5 |
+| 📄 5 output formats | `srt` / `vtt` / `md` / `txt` / `json`, multi-select |
+| ⏱ Word-level timing | Cue boundaries = first word onset → last word end (`--word-timestamps`) |
+| 🛡 Artifact fallback | Segments with unreliable word alignment automatically fall back to proportional sentence splitting — no duplicated subtitle text |
+| ♻️ Resume | Files with all target formats already generated are skipped; re-run the same command after any interruption |
+| 📦 Model caching | Weights cached on disk + loaded once per process |
+| 🌲 Directory batch | Recursive scanning, mirrored output structure |
 
 ---
 
-## 安装
+## Installation
 
-### ⚠️ 平台要求（先读）
+### ⚠️ Platform requirements (read first)
 
-| 项 | 要求 | 说明 |
+| Item | Requirement | Notes |
 |---|---|---|
-| 操作系统 | **transcribe：mac 用 mlx 引擎；Linux/Win 自动用 faster-whisper 引擎** | Linux/Win 上 CPU 可跑（NVIDIA 更快）；`
-      --vad` 可治音乐段幻觉 |
-| `polish` / `judge` | ✅ 全平台 | 纯 Python 标准库 |
-| ffmpeg | 仅 transcribe 需要 | `brew install ffmpeg` / `apt install ffmpeg` |
-| 包管理 | uv | `brew install uv` 或见 [uv 文档](https://docs.astral.sh/uv/) |
-| 网络 | 首次需联网 | 下载依赖 + 模型权重（后续离线可用） |
+| OS | **`transcribe`: macOS uses the mlx engine; Linux/Windows automatically use the faster-whisper engine** | CPU works on Linux/Win (NVIDIA is faster); `--vad` helps with music-section hallucinations |
+| `polish` / `judge` | ✅ Cross-platform | Pure Python standard library |
+| ffmpeg | needed by `transcribe` only | `brew install ffmpeg` / `apt install ffmpeg` |
+| Package manager | uv | `brew install uv` or see the [uv docs](https://docs.astral.sh/uv/) |
+| Network | first run only | Downloads dependencies + model weights (offline afterwards) |
 
-### 5 步从零开始（全新机器）
+### From zero in 5 steps (fresh machine)
 
 ```bash
-# 1. 装前置（已装可跳过）
-brew install uv ffmpeg
+# 1. Prerequisites (skip if installed)
+brew install uv ffmpeg          # Linux: install uv + ffmpeg via your package manager
 
-# 2. 克隆（换成你自己的仓库地址）
+# 2. Clone (replace with your own repo URL)
 git clone https://github.com/<you>/stt-local-english.git
 cd stt-local-english
 
-# 3. 创建环境并安装依赖（uv 会自动装 Python 3.12）
+# 3. Create the env and install deps (uv installs Python 3.12 automatically)
 uv sync
 
-# 4. 验证
+# 4. Verify
 uv run stt-local --help
 
-# 5. 转第一个文件（首次会自动下载模型，见下节）
+# 5. Transcribe the first file (model downloads automatically on first run, see below)
 uv run stt-local your_video.mp4 -o ./out -f srt -f md
 ```
 
-**全局安装**（任意目录直接用 `stt-local`）：
+**Global install** (use `stt-local` from any directory):
 
 ```bash
 uv tool install .
-# 升级 / 卸载
+# upgrade / uninstall
 uv tool upgrade stt-local-english
 uv tool uninstall stt-local-english
 ```
 
 ---
 
-## 模型怎么来？（不入库，按需下载）
+## How models work (not committed; downloaded on demand)
 
-模型权重**不放进 git 仓库**（默认版约 1.5 GB，避免仓库臃肿），改为：
+Model weights are **not stored in the git repo** (~1.5 GB for the default) — instead:
 
-1. 首次执行转写时，`mlx-whisper` 自动从 HuggingFace 拉取 `mlx-community/whisper-large-v3-turbo`
-2. 存入本机缓存 `~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/`
-3. **只下载一次**，之后完全离线可用
-4. 删除缓存即重新下载；换机器 = 各自下载一次
+1. On the first transcription run, `mlx-whisper` pulls `mlx-community/whisper-large-v3-turbo`
+   from HuggingFace automatically
+2. It is cached at `~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/`
+3. **Downloaded exactly once** — fully offline afterwards
+4. Deleting the cache re-downloads; a new machine downloads its own copy
 
 ```bash
-# 想看缓存大小 / 手动清理
+# inspect cache size / clean up manually
 ls ~/.cache/huggingface/hub/ | grep whisper
 rm -rf ~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo
 ```
 
-**嫌大 / 网慢？** 换 int4 量化版（约 500 MB，效果略降）：
+**Too big / slow network?** Use the int4 quantized build (~500 MB, slightly lower quality):
 
 ```bash
 stt-local clip.mp4 -m mlx-community/whisper-large-v3-turbo-int4
 ```
 
-**中国大陆网络下不去 HuggingFace？** 用镜像（一行环境变量，无需代理）：
+**Can't reach HuggingFace (mainland China)?** Use the mirror (one env var, no proxy):
 
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
-export HF_HUB_ENABLE_HF_TRANSFER=1   # 可选：加速下载
+export HF_HUB_ENABLE_HF_TRANSFER=1   # optional: faster downloads
 stt-local clip.mp4
 ```
 
 ---
 
-## 快速上手
+## Quick start
 
 ```bash
-# ① 单个视频 → 在视频同目录生成 .srt + .md
+# ① Single file → writes .srt + .md next to the video
 stt-local 001_video.mp4
 
-# ② 只要字幕
+# ② Subtitles only
 stt-local 001_video.mp4 --no-md
 
-# ③ 整个目录批量（含子目录），输出镜像到 transcripts/
+# ③ Whole directory (recursive), output mirrored to transcripts/
 stt-local ./videos/ -o ./transcripts/
 
-# ④ 正式转写推荐（词级时间轴 + 三件套，供后续 LLM 精修）
+# ④ Recommended for real runs (word-level timestamps + three formats, for later LLM refinement)
 stt-local ./videos/ -o ./transcripts/videos/ \
           -f srt -f md -f json --word-timestamps
 
-# ⑤ 先看看会转哪些文件
+# ⑤ See what would be processed
 stt-local ./videos/ --dry-run
 ```
 
 ---
 
-## 命令行参考
+## CLI reference
 
 ```
 usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
@@ -127,67 +147,69 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
                  inputs [inputs ...]
 ```
 
-| 参数 | 默认 | 说明 |
+| Flag | Default | Description |
 |---|---|---|
-| `inputs` | — | 媒体文件或目录（可多个；目录默认递归） |
-| `-o, --output-dir` | 无 | 输出目录，镜像输入结构；**不填则写在每个媒体文件同目录** |
-| `-m, --model` | `mlx-community/whisper-large-v3-turbo` | 见下方模型表（faster 引擎自动映射为对应尺寸名） |
-| `-f, --format` | `srt md` | 输出格式，可重复传（如 `-f srt -f json`） |
-| `-l, --language` | `en` | 语言提示；`auto` 自动检测 |
-| `--engine` | `auto` | `mlx`（Apple Silicon GPU）/ `faster`（跨平台，Linux/Win 默认）/ `auto` 自动选 |
-| `--fw-device` | `auto` | faster 引擎设备：`cpu` / `cuda` / `auto` |
-| `--vad` | 关 | faster 引擎：VAD 过滤非语音段（音乐/片尾幻觉的 Linux 解法） |
-| `--word-timestamps` | 关 | 逐词时间戳：SRT 词级切轴、JSON 含 `words` |
-| `--no-condition-previous` | 开 | 关闭“以上文为条件”解码；片尾音乐/静音段触发循环重复幻觉（`A-A-A-...`）时用它能根治 |
-| `--no-md` | 关 | 快捷方式：只输出 SRT |
-| `--force` | 关 | 已有结果也重新转写 |
-| `--no-recursive` | 关 | 不递归子目录 |
-| `--dry-run` | 关 | 只列出将处理的文件并退出 |
-| `--verbose` | 关 | 详细日志（含进度条） |
-| `--version` | — | 打印版本 |
+| `inputs` | — | media files or directories (multiple allowed; directories are recursive by default) |
+| `-o, --output-dir` | none | output root mirroring the input structure; **omit → written next to each media file** |
+| `-m, --model` | `mlx-community/whisper-large-v3-turbo` | HF repo or local path — see the model table (the faster backend auto-maps names) |
+| `-f, --format` | `srt md` | output format; repeatable (e.g. `-f srt -f json`) |
+| `-l, --language` | `en` | language hint; `auto` to detect |
+| `--engine` | `auto` | `mlx` (Apple Silicon GPU) / `faster` (cross-platform, the Linux/Win default) / `auto` |
+| `--fw-device` | `auto` | faster backend device: `cpu` / `cuda` / `auto` |
+| `--vad` | off | faster backend: VAD filter skips non-speech (fixes music/outro hallucinations) |
+| `--word-timestamps` | off | word-level timestamps: word-timed SRT cues, `words` in JSON |
+| `--no-condition-previous` | off | disable conditioning on previous text; cures the `A-A-A-...` repetition hallucination on music/outro segments |
+| `--no-md` | off | shortcut: SRT only |
+| `--force` | off | re-transcribe even if outputs exist |
+| `--no-recursive` | off | don't descend into subdirectories |
+| `--dry-run` | off | list files that would be processed, then exit |
+| `--verbose` | off | verbose logging (progress bars) |
+| `--version` | — | print version |
 
-### 模型选择
+### Choosing a model
 
-默认 `large-v3-turbo` 是准确率/速度的最佳平衡。其它可用 HF 仓库（MLX 转换版）：
+The default `large-v3-turbo` is the best accuracy/speed balance. Other HF repos (MLX builds):
 
-| 模型 | 参数 | 相对速度 | 相对准确率 | 说明 |
+| Model | Params | Speed | Accuracy | Notes |
 |---|---|---|---|---|
-| `mlx-community/whisper-turbo` | ~809M | ★★★★★ | ★★★★ | 快，够用 |
-| `mlx-community/whisper-large-v3-turbo` | 809M | ★★★★ | ★★★★★ | **默认**，强烈推荐 |
-| `mlx-community/whisper-large-v3-turbo-int4` | 809M 量化 | ★★★★★ | ★★★★☆ | 省内存版，效果略降 |
-| `mlx-community/whisper-large-v3` | 1.54B | ★★ | ★★★★★ | 顶配准确率，慢 ~4× |
-| `mlx-community/whisper-small` | 244M | ★★★★★★ | ★★★ | 快速试跑/验证管道 |
+| `mlx-community/whisper-turbo` | ~809M | ★★★★★ | ★★★★ | fast, good enough |
+| `mlx-community/whisper-large-v3-turbo` | 809M | ★★★★ | ★★★★★ | **default**, recommended |
+| `mlx-community/whisper-large-v3-turbo-int4` | 809M quant. | ★★★★★ | ★★★★☆ | memory-saver, slightly lower quality |
+| `mlx-community/whisper-large-v3` | 1.54B | ★★ | ★★★★★ | top accuracy, ~4× slower |
+| `mlx-community/whisper-small` | 244M | ★★★★★★ | ★★★ | quick pipeline validation |
 
-小模型快速验证管线：`stt-local clip.mp4 -m mlx-community/whisper-small -f txt`
+Small-model sanity check: `stt-local clip.mp4 -m mlx-community/whisper-small -f txt`
 
 ---
 
-## 输出格式详解
+## Output formats
 
-### SRT（字幕）
-- 默认每句一条字幕；`--word-timestamps` 时每条字幕的起止时间取该条**首词→末词**的真实对齐时间
-- 长句自动在词边界拆行（≤80 字符），拆出的每行各有自己的精确时间轴
-- 若某片段词级对齐被判定不可靠（词重复/错位伪影），该片段自动回退为**句级等比切分**，保证不输出重复内容
+### SRT (subtitles)
+- One cue per segment by default; with `--word-timestamps` each cue's times come from the
+  **actual aligned first/last word**
+- Long segments wrap at word boundaries (≤80 chars), each wrapped line keeps its own precise timing
+- If a segment's word alignment is deemed unreliable (duplicates/misalignment artifacts), that
+  segment automatically falls back to **proportional sentence splitting** — duplicated text is never emitted
 
-### MD（正文阅读版）
-段落按说话停顿（>1s 间隙）聚合，适合直接阅读/喂 LLM。
+### MD (reading version)
+Paragraphs grouped by speech pauses (>1 s gaps) — for direct reading or feeding to an LLM.
 
-### JSON（结构化，LLM 精修首选）
+### JSON (structured; preferred for LLM refinement)
 ```jsonc
 {
-  "source": "/path/001_video.mp4",   // 来源文件
-  "language": "en",                  // 检测/指定语言
-  "duration": 180.0,                 // 音频时长（秒）
-  "elapsed": 12.3,                   // 本次转写耗时（秒）
+  "source": "/path/001_video.mp4",   // source file
+  "language": "en",                  // detected/specified language
+  "duration": 180.0,                 // audio duration (seconds)
+  "elapsed": 12.3,                   // this run's transcription time (seconds)
   "segments": [
     {
-      "start": 0.0,                  // 句开始（秒）
-      "end": 5.9,                    // 句结束（秒）
+      "start": 0.0,                  // segment start (seconds)
+      "end": 5.9,                    // segment end (seconds)
       "text": "Welcome back to the series.",
-      "words": [                     // --word-timestamps 开启时才有
+      "words": [                     // present only with --word-timestamps
         {"word": "Welcome", "start": 0.0, "end": 0.5},
         {"word": " back",   "start": 0.5, "end": 0.9}
-        // ...逐词时间
+        // ...one entry per word
       ]
     }
   ]
@@ -196,74 +218,81 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 
 ---
 
-## 断点续转
+## Resume semantics
 
-判定规则：**某媒体文件的全部目标格式输出文件都已存在且非空** → 跳过。
-- 批量中断 → 重跑同一条命令，完成的瞬间 `SKIP`，未完成的继续
-- `--force` 强制全部重转
-- 原子写入：输出先写 `.tmp` 再改名，不会留下半个文件
-
----
-
-## 实测参考（开发机 Apple M5 / 24GB）
-
-- 57 秒片段：**4.4 s** 完成（≈13× 实时）
-- 全量 176 集（约 19.4 小时音频，含词级时间戳 + 3 种格式输出）：**约 1h41m**（≈11.5× 实时），0 失败
-- 输出体积约 160 KB/集（srt+md+json 三件套约 160 KB）——一整套 176 集约 28 MB
+Rule: **a media file is skipped when all target-format outputs already exist and are non-empty.**
+- Interrupted batch → re-run the same command; finished files `SKIP` instantly, the rest continue
+- `--force` re-processes everything
+- Atomic writes: output is written to `.tmp` then renamed — no half files
 
 ---
 
-## LLM key 放哪（不用 zshrc、不用钥匙串）
+## Real-world benchmark (dev machine: Apple M5 / 24 GB)
 
-存在**专用轻量配置文件**（类似一个只干一件事的迷你 zshrc，但只被 stt-local 读取，
-不进任何 shell、不进任何仓库）：
+- 57-second clip: **4.4 s** (≈13× real-time)
+- Full run of 176 videos (~19.4 h of audio, with word timestamps + 3 output formats): **~1h41m**
+  (≈11.5× real-time), 0 failures
+- Output size ~160 KB per episode (srt+md+json) — a 176-episode set is ~28 MB
+
+---
+
+## Where the LLM key lives (no zshrc, no keychain)
+
+Credentials live in a **dedicated lightweight config file** (a mini zshrc that does exactly one
+job — but only stt-local reads it; it never enters any shell or repo):
 
 ```
-~/.config/stt-local/keys.env        # 权限 600，仅本人可读
+~/.config/stt-local/keys.env        # mode 600, readable by you only
 ```
 
 ```bash
-# 填写（去掉行首 # 即生效）
+# fill in (uncomment to activate)
 # STT_LLM_API_KEY=sk-xxx
 # STT_LLM_BASE_URL=https://api.deepseek.com/v1
 # STT_LLM_MODEL=deepseek-chat
 
-chmod 600 ~/.config/stt-local/keys.env   # 确认权限
+chmod 600 ~/.config/stt-local/keys.env   # verify permissions
 ```
 
-- 读取优先级：CLI 参数 > 环境变量 > keys.env
-- 修改即生效，无需 source / 重启
-- 想临时在 shell 里用同一套变量：`set -a; source ~/.config/stt-local/keys.env; set +a`
-- **迁移到新机器**：随项目拷走这一个文件即可（同 gh 的 ~/.config/gh 模式）
+- Precedence: CLI flags > environment variables > keys.env
+- Edits take effect immediately — no sourcing or restarts
+- To use the same vars in a shell: `set -a; source ~/.config/stt-local/keys.env; set +a`
+- **Migrating machines**: copy this one file along with the project (same pattern as gh's
+  `~/.config/gh`)
 
-## LLM 精修（stt-local polish）
+## LLM polishing (`stt-local polish`)
 
-对已转写的 `.json` 做**对齐安全**的错字修复：LLM 只返回逐句修正文本（id 一一对应），
-时间轴永远由本工具保管，字幕不会因精修而错位。支持任意 OpenAI 兼容端点。
+**Alignment-safe** typo repair for transcribed `.json` files: the LLM only returns corrected
+text, one-to-one per segment id — timestamps are always handled by this tool, so subtitles can
+never drift. Works with any OpenAI-compatible endpoint.
 
 ```bash
-# 配置（写一次 ~/.config/stt-local/keys.env，见上一节；也可用环境变量临时覆盖）
+# configure (write ~/.config/stt-local/keys.env once, see previous section; or override via env)
 # STT_LLM_API_KEY / STT_LLM_BASE_URL / STT_LLM_MODEL
 
-# 先 mock 自测管线（不联网、不花钱）
+# pipeline self-test first (mock, no network, no cost)
 stt-local polish transcripts/videos/ --mock -o /tmp/pol-test
 
-# 正式精修（推荐配词表，保护专有名词不被“改错”）
+# real run (a glossary is recommended to protect proper nouns)
 stt-local polish transcripts/videos/ -o transcripts/videos-polished \
     --glossary terms.txt --jobs 4
 ```
 
-要点：
-- 输出三件套到 `-o` 目录：`.json`（含 `polished: true` 与用量统计）、`.srt`、`.md`
-- 断点续转：每批完成即写 checkpoint，中断重跑不重复计费
-- 约束校验：句数/顺序/长度比例不合格的批次自动重试，最终回退原文（日志可见 fallback）
-- 幻觉治理：LLM 判定为非语音垃圾的片段输出空串，srt/md 中跳过
-- 术语词表 `terms.txt` 每行一个词（如 `CLAUDE.md`、`agent skills`、``）
-- 返回格式已用 few-shot 示例 + 显式 id 规则约束（不得重新编号/遗漏 id），减少无效载荷重试
+Key points:
+- Writes three files into `-o`: `.json` (with `polished: true` and usage stats), `.srt`, `.md`
+- Resume: a checkpoint is written after every batch — interrupted runs never re-bill
+- Validation: batches with wrong count/order/length-ratio are retried, then fall back to the
+  original text (visible as `fallback` in logs)
+- Hallucination handling: segments the LLM deems non-speech garbage become empty strings and
+  are skipped in srt/md
+- Glossary `terms.txt`: one term per line (e.g. `CLAUDE.md`, `agent skills`, `OpenRouter`)
+- Output shape is pinned by a few-shot example + explicit id rules (no renumbering/skipping),
+  which cuts invalid-payload retries
 
-## 二遍裁判（stt-local judge）
+## Second-pass QA judge (`stt-local judge`)
 
-用**另一个模型家族**对精修结果逐条独立评审（避免自评偏见），产出 OK/SUSPECT 报告：
+An **independent model family** reviews every polish diff (avoiding self-review bias) and
+produces an OK/SUSPECT report:
 
 ```bash
 stt-local judge transcripts/polished/ \
@@ -273,23 +302,29 @@ stt-local judge transcripts/polished/ \
     -o judge-report.md
 ```
 
-要点：
-- 原始转录目录默认自动探测（精修路径中名为 `polished` 的祖先目录被剥离）；也可用 `--orig-root` 显式指定
-- 裁判 prompt 注入同一份 glossary —— **不带词表的裁判会把正确的产品名修复误报成 SUSPECT**（实测教训）
-- 严格校验：返回 id 集合必须与输入完全相等（防重新编号），int 键全链路归一化
-- 断点续转 + `--mock` 无网络自测
-- 实测校准：术语修复/垃圾删除 → OK；真语音被替换/破坏 → SUSPECT（fixture 三方向验证通过）
+Key points:
+- The original-transcript root is auto-detected by default (a `polished` ancestor path component
+  is stripped); override with `--orig-root`
+- The judge prompt injects the same glossary — **without it, judges false-positive correct
+  product-name fixes as SUSPECT** (hard-earned lesson)
+- Strict validation: returned ids must exactly equal the input ids (guards against renumbering);
+  int keys normalized end to end
+- Resume + `--mock` for offline self-testing
+- Calibrated: term fixes / garbage removal → OK; real speech replaced or destroyed → SUSPECT
+  (verified in all three directions with a fixture)
 
 ---
 
-## 开发 / CI
+## Development / CI
 
-仓库自带 GitHub Actions 冒烟测试（`.github/workflows/smoke.yml`）：在 macOS arm64
-runner 上 `uv sync` → 用 whisper-tiny 转写 `tests/sample.mp3` → 校验 srt/md/json 输出。
+The repo ships a GitHub Actions smoke test (`.github/workflows/smoke.yml`):
+on a macOS arm64 runner: `uv sync` → transcribe `tests/sample.mp3` with whisper-tiny →
+validate srt/md/json outputs. A second job proves `polish`/`judge` on **Ubuntu** (Linux
+transcription included).
 
-- 任何 push 到 `main` 或新 PR 都会自动跑
-- **`main` 分支受保护：`transcribe-smoke` 必须通过才能合并 PR**
-- 本地快速预演 CI：
+- Runs automatically on every push to `main` and on new PRs
+- **`main` is protected: `transcribe-smoke` must pass before a PR can merge**
+- Local CI rehearsal:
   ```bash
   uv sync --frozen
   uv run stt-local tests/sample.mp3 -o tests/out -m mlx-community/whisper-tiny \
@@ -299,56 +334,68 @@ runner 上 `uv sync` → 用 whisper-tiny 转写 `tests/sample.mp3` → 校验 s
 
 ---
 
-## 常见问题（FAQ）
+## FAQ
 
-**Q：报 `mlx-whisper is not available`？**
-不是 Apple Silicon 或依赖没装好。确认芯片 `sysctl -n machdep.cpu.brand_string` 含 Apple，并 `uv sync` 重装。
+**Q: `mlx-whisper is not available`?**
+Not on Apple Silicon, or deps are missing. Confirm the chip with
+`sysctl -n machdep.cpu.brand_string` (must contain "Apple"), then re-run `uv sync`.
 
-**Q：我是 Windows / Linux / Intel Mac，能用吗？**
-现在**都能转写了**：非 macOS 平台 `uv sync` 会自动装 faster-whisper 引擎（CPU 即可，有 NVIDIA 更快），命令完全一致；Mac 上则默认用 mlx 引擎（可用 `--engine faster` 切换）。`polish` / `judge` 本就全平台。
+**Q: Windows / Linux / Intel Mac?**
+**Transcription works everywhere now**: on non-macOS platforms `uv sync` automatically installs
+the faster-whisper engine (CPU alone works; NVIDIA is faster) — identical commands. Macs default
+to the mlx engine (switch with `--engine faster`). `polish` / `judge` were always cross-platform.
 
-**Q：报 ffmpeg 相关错误？**
-mlx-whisper 内部调用系统 ffmpeg 解码。macOS 装：`brew install ffmpeg`。
+**Q: ffmpeg-related errors?**
+mlx-whisper shells out to the system ffmpeg. macOS: `brew install ffmpeg`.
 
-**Q：中文/其它语言视频被转成乱码英文？**
-本工具面向英文。中文请用 FunASR/SenseVoice 系模型；或 `-l zh`（Whisper 也能转中文，但准确率不如专用模型）。
+**Q: Chinese/other-language videos turn into garbled English?**
+This tool targets English. For Chinese use FunASR/SenseVoice-family models; or `-l zh`
+(Whisper can transcribe Chinese but a dedicated model is more accurate).
 
-**Q：某个文件一直 FAIL？**
-看具体报错。内存不足（OOM）就换 `-int4` 量化模型；单个文件反复失败会跳过继续跑剩余，跑完看日志 `FAIL` 行汇总即可。
+**Q: One file keeps FAILing?**
+Read the error. For OOM switch to the `-int4` quantized model; a repeatedly failing file is
+skipped so the batch continues — check the `FAIL` summary in the log afterwards.
 
-**Q：字幕里有莫名其妙的重复词？**
-词级对齐伪影。本工具已内置检测回退；若仍出现，说明该段词时间戳完全不可信，属模型偶发行为，重转 `--force` 单个文件通常可解。
+**Q: Weird duplicated words in subtitles?**
+Word-alignment artifacts. Detection+fallback is built in; if one still appears, that segment's
+word timing was hopeless — re-transcribing that single file with `--force` usually resolves it.
 
-**Q：可以边用边看进度吗？**
-默认每完成一个文件打印一行 `[i/n] OK ...`；加 `--verbose` 显示逐段进度条。批量建议 `2>&1 | tee transcribe.log`。
+**Q: Can I watch progress?**
+Each finished file prints one `[i/n] OK ...` line; add `--verbose` for per-segment progress bars.
+For batches, `2>&1 | tee transcribe.log` is recommended.
 
-**Q：输出默认写在哪？**
-不加 `-o` 时**写在媒体文件旁边**（同名不同扩展名），避免污染原目录请用 `-o`。
+**Q: Where do outputs go by default?**
+Without `-o`, **next to each media file** (same stem, different extension). Use `-o` to keep
+source directories clean.
 
 ---
 
-## 项目结构
+## Project structure
 
 ```
 stt-local-english/
-├── pyproject.toml            # 依赖与 CLI 入口 (stt-local)
+├── pyproject.toml            # dependencies & CLI entry point (stt-local)
 ├── README.md
 └── src/stt_local_english/
-    ├── __init__.py           # 版本与常量（模型默认值、支持格式）
-    ├── cli.py                # argparse 命令行入口
-    ├── engine.py             # mlx-whisper 封装：转录 + 段清洗
-    ├── batch.py              # 文件发现、批量循环、断点续转判定
-    └── output.py             # srt/vtt/md/txt/json 渲染 + 词级/回退算法
+    ├── __init__.py           # version & constants (default model, supported formats)
+    ├── cli.py                # argparse entry point
+    ├── engine.py             # mlx-whisper / faster-whisper backends + normalization
+    ├── batch.py              # media discovery, batch loop, resume checks
+    ├── polish.py             # alignment-safe LLM polishing
+    ├── judge.py              # second-pass QA judge
+    ├── llm.py                # OpenAI-compatible client (stdlib only)
+    └── output.py             # srt/vtt/md/txt/json renderers + word-level/fallback logic
 ```
 
 ---
 
-## 后续 LLM 精修建议流程
+## Suggested LLM refinement flow
 
-1. 读每集 `.json` 的 `segments[].text` 让 LLM 改正错词/补标点/统一术语
-2. 输出与 `segments` 一一对应的修正文本数组（顺序不可变）
-3. 回填到 SRT：时间轴（`start/end` 或 `words`）原样保留，只替换文本
-4. 校验：新 SRT 与旧 SRT 的 cue 数量一致、时间单调递增
+1. Read each episode's `.json` `segments[].text` and have the LLM fix mis-hearings, punctuation
+   and term spelling
+2. Output a corrected-text array that maps 1:1 onto `segments` (order must not change)
+3. Refill the SRT: keep the timeline (`start/end` or `words`) untouched, replace text only
+4. Verify: same cue count as the old SRT, timestamps strictly monotonic
 
-> `.json` 里的 `words` 数组用于更精细的字幕回填；如只做段落级润色，忽略 `words`、
-> 逐句对齐 `segments` 即可。
+> The `words` array enables finer subtitle refill; for paragraph-level polishing, ignore `words`
+> and align on `segments` only.

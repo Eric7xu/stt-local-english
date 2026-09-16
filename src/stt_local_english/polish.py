@@ -3,7 +3,8 @@
 Design invariants (the whole point of this module):
   * The LLM NEVER owns timing data. It only returns corrected text keyed by
     segment id, one-to-one with the input. All timestamps/word data stay in
-    this module's hands, so subtitles remain aligned regardless.
+    this module's hands, so subtitles remain aligned regardless of what the
+    model changes.
   * Strict validation: id/order equality + per-segment length-ratio bounds.
     Invalid batches are retried, then fall back to original text.
   * Per-file checkpoint state so interrupted runs never re-bill completed
