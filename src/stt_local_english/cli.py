@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import DEFAULT_MODEL, __version__
 from .batch import BatchConfig, discover_media, run_batch
-from .engine import check_mlx
+from .engine import resolve_engine
 from .judge import JudgeConfig, run_judge
 from .output import RENDERERS
 from .polish import PolishConfig, run_polish
@@ -147,6 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--word-timestamps", action="store_true", help="include per-word timestamps (in JSON/SRT)")
     p.add_argument("--no-condition-previous", action="store_true",
                   help="disable conditioning on previous text (less repetition-hallucination on non-speech/music; may break sentence consistency)")
+    p.add_argument("--engine", choices=["auto", "mlx", "faster"], default="auto",
+                  help="transcription backend: mlx (Apple Silicon GPU) or faster (faster-whisper, cross-platform); auto = mlx if available")
+    p.add_argument("--fw-device", default=None, help="faster backend device: auto/cpu/cuda (default auto)")
+    p.add_argument("--vad", action="store_true", help="faster backend only: VAD filter to skip non-speech (fewer music hallucinations)")
     p.add_argument("--no-md", action="store_true", help="shortcut: only write SRT")
     p.add_argument("--force", action="store_true", help="re-transcribe even if outputs exist")
     p.add_argument("--no-recursive", action="store_true", help="do not descend into subdirectories")
@@ -172,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING,
                         format="%(levelname)s %(name)s: %(message)s")
 
-    check_mlx()
+    engine = resolve_engine(args.engine)
 
     cfg = BatchConfig(
         inputs=args.inputs,
@@ -184,6 +188,9 @@ def main(argv: list[str] | None = None) -> int:
         force=args.force,
         recursive=not args.no_recursive,
         condition_on_previous_text=not args.no_condition_previous,
+        engine=engine,
+        fw_device=args.fw_device,
+        vad=args.vad,
     )
 
     media = discover_media(cfg)
@@ -197,8 +204,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(media)} file(s).")
         return 0
 
-    print(f"Model: {cfg.model}")
-    print(f"Language: {cfg.language}   Formats: {', '.join(fmts)}   Files: {len(media)}")
+    print(f"Engine: {engine}   Model: {args.model}")
+    print(f"Language: {args.language}   Formats: {', '.join(fmts)}   Files: {len(media)}")
     print("-" * 72)
 
     summary = run_batch(cfg, media)

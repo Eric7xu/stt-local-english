@@ -28,6 +28,9 @@ class BatchConfig:
     recursive: bool = True
     jobs: int = 1
     condition_on_previous_text: bool = True
+    engine: str = "auto"
+    fw_device: str | None = None
+    vad: bool = False
 
 
 def _fmt_ts(seconds: float) -> str:
@@ -113,6 +116,9 @@ def transcribe_one(media: Path, cfg: BatchConfig) -> dict:
         language=cfg.language,
         word_timestamps=cfg.word_timestamps,
         condition_on_previous_text=cfg.condition_on_previous_text,
+        engine=cfg.engine,
+        fw_device=cfg.fw_device,
+        vad=cfg.vad,
     )
     written: list[Path] = []
     for fmt in cfg.formats:

@@ -27,9 +27,10 @@
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| 操作系统 | **transcribe 仅 macOS（Apple Silicon）** | 引擎依赖 Apple MLX；Windows/Linux 无法转写 |
-| `polish` / `judge` | ✅ **跨平台**（Linux/Win 可用） | 纯 Python 标准库，无需 MLX；Linux/Win 上 `uv sync` 自动跳过 mlx 依赖 |
-| ffmpeg | 仅 transcribe 需要 | `brew install ffmpeg` |
+| 操作系统 | **transcribe：mac 用 mlx 引擎；Linux/Win 自动用 faster-whisper 引擎** | Linux/Win 上 CPU 可跑（NVIDIA 更快）；`
+      --vad` 可治音乐段幻觉 |
+| `polish` / `judge` | ✅ 全平台 | 纯 Python 标准库 |
+| ffmpeg | 仅 transcribe 需要 | `brew install ffmpeg` / `apt install ffmpeg` |
 | 包管理 | uv | `brew install uv` 或见 [uv 文档](https://docs.astral.sh/uv/) |
 | 网络 | 首次需联网 | 下载依赖 + 模型权重（后续离线可用） |
 
@@ -130,9 +131,12 @@ usage: stt-local [-h] [-o OUTPUT_DIR] [-m MODEL] [-f {json,md,srt,txt,vtt}]
 |---|---|---|
 | `inputs` | — | 媒体文件或目录（可多个；目录默认递归） |
 | `-o, --output-dir` | 无 | 输出目录，镜像输入结构；**不填则写在每个媒体文件同目录** |
-| `-m, --model` | `mlx-community/whisper-large-v3-turbo` | HF 模型仓库名或本地路径，见下方模型表 |
+| `-m, --model` | `mlx-community/whisper-large-v3-turbo` | 见下方模型表（faster 引擎自动映射为对应尺寸名） |
 | `-f, --format` | `srt md` | 输出格式，可重复传（如 `-f srt -f json`） |
 | `-l, --language` | `en` | 语言提示；`auto` 自动检测 |
+| `--engine` | `auto` | `mlx`（Apple Silicon GPU）/ `faster`（跨平台，Linux/Win 默认）/ `auto` 自动选 |
+| `--fw-device` | `auto` | faster 引擎设备：`cpu` / `cuda` / `auto` |
+| `--vad` | 关 | faster 引擎：VAD 过滤非语音段（音乐/片尾幻觉的 Linux 解法） |
 | `--word-timestamps` | 关 | 逐词时间戳：SRT 词级切轴、JSON 含 `words` |
 | `--no-condition-previous` | 开 | 关闭“以上文为条件”解码；片尾音乐/静音段触发循环重复幻觉（`A-A-A-...`）时用它能根治 |
 | `--no-md` | 关 | 快捷方式：只输出 SRT |
@@ -301,7 +305,7 @@ runner 上 `uv sync` → 用 whisper-tiny 转写 `tests/sample.mp3` → 校验 s
 不是 Apple Silicon 或依赖没装好。确认芯片 `sysctl -n machdep.cpu.brand_string` 含 Apple，并 `uv sync` 重装。
 
 **Q：我是 Windows / Linux / Intel Mac，能用吗？**
-分半说：`polish` / `judge`（LLM 精修与裁判）**全平台可用**——纯 Python 标准库，`uv sync` 会自动跳过 mlx 依赖（CI 里有 Linux 冒烟作业持续验证）；`transcribe`（语音转文字）仅限 Apple Silicon macOS，跨平台替代 `faster-whisper`/`whisper.cpp` 转写后，polish/judge 照样接上。
+现在**都能转写了**：非 macOS 平台 `uv sync` 会自动装 faster-whisper 引擎（CPU 即可，有 NVIDIA 更快），命令完全一致；Mac 上则默认用 mlx 引擎（可用 `--engine faster` 切换）。`polish` / `judge` 本就全平台。
 
 **Q：报 ffmpeg 相关错误？**
 mlx-whisper 内部调用系统 ffmpeg 解码。macOS 装：`brew install ffmpeg`。
