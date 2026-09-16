@@ -101,9 +101,4 @@ jobs:
         run: |
           which ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
           uv run stt-local tests/tone.wav --engine faster -m tiny -f json -o tests/out-linux
-          python3 -c "
-            import json, glob
-            d = json.load(open(glob.glob('tests/out-linux/*.json')[0]))
-            assert d.get('duration', 0) > 0, 'duration missing'
-            print('LINUX TRANSCRIBE OK: duration', d['duration'], 's, language', d.get('language'))
-          "
+          python3 -c "import json,glob; d=json.load(open(glob.glob('tests/out-linux/*.json')[0])); assert d.get('duration',0)>0; print('LINUX TRANSCRIBE OK: duration', d['duration'], 's, language', d.get('language'))"
